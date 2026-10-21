@@ -885,11 +885,11 @@ export class MumbaiWorld {
     // Floating Directional 3D Arrow above rickshaw
     this.pointerArrow = new THREE.Group();
     const arrowCone = new THREE.Mesh(
-      new THREE.ConeGeometry(0.4, 1.2, 8),
+      new THREE.ConeGeometry(0.28, 0.9, 8),
       new THREE.MeshStandardMaterial({
         color: 0xfacc15,
         emissive: 0xeab308,
-        emissiveIntensity: 0.8,
+        emissiveIntensity: 0.9,
         roughness: 0.2,
       })
     );
@@ -897,10 +897,10 @@ export class MumbaiWorld {
     this.pointerArrow.add(arrowCone);
 
     const arrowShaft = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.14, 0.14, 0.8),
+      new THREE.CylinderGeometry(0.08, 0.08, 0.6),
       new THREE.MeshStandardMaterial({ color: 0xca8a04, roughness: 0.3 })
     );
-    arrowShaft.position.z = 0.8;
+    arrowShaft.position.z = 0.6;
     arrowShaft.rotation.x = Math.PI / 2;
     this.pointerArrow.add(arrowShaft);
 
@@ -936,14 +936,14 @@ export class MumbaiWorld {
     ring.rotation.z += 1.5 * dt;
 
     // 3. Update Floating Pointer Arrow
-    this.pointerArrow.position.set(rickshawPos.x, rickshawPos.y + 2.8, rickshawPos.z);
+    this.pointerArrow.position.set(rickshawPos.x, rickshawPos.y + 3.4, rickshawPos.z);
     // Point arrow towards mission target in X-Z plane
     const dx = targetPos.x - rickshawPos.x;
     const dz = targetPos.z - rickshawPos.z;
     const angle = Math.atan2(dx, dz);
     this.pointerArrow.rotation.y = angle;
     // Gentle bobbing motion
-    this.pointerArrow.position.y += Math.sin(Date.now() * 0.005) * 0.15;
+    this.pointerArrow.position.y += Math.sin(Date.now() * 0.005) * 0.12;
 
     // 4. Update Traffic Navigation
     this.trafficList.forEach((car) => {
