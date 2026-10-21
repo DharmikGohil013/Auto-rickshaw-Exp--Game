@@ -11,6 +11,7 @@ import { MobileControls } from './components/MobileControls';
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  const runStartedAt = useRef<number | null>(null);
 
   const [gameState, setGameState] = useState<'title' | 'playing' | 'paused' | 'gameover'>('title');
   const [hudState, setHudState] = useState<GameHUDState>({
@@ -47,7 +48,17 @@ export default function App() {
   }, [gameState]);
 
   // Handle Game Over
-  const handleGameOver = useCallback((finalScore: number) => {
+  const handleGameOver = useCallback((finalScore: number, deliveries: number) => {
+    const duration = runStartedAt.current === null
+      ? 0
+      : Math.round((performance.now() - runStartedAt.current) / 1000);
+    window.parent.postMessage({
+      type: 'playzy:run-ended',
+      gameId: 'monsoon-rickshaw-rush',
+      score: finalScore,
+      deliveries,
+      duration,
+    }, window.location.origin);
     setGameState('gameover');
     setBestScore((prev) => {
       if (finalScore > prev) {
@@ -71,7 +82,7 @@ export default function App() {
         setHudState({ ...hud });
       },
       onGameOver: (score, deliveries) => {
-        handleGameOver(score);
+        handleGameOver(score, deliveries);
       },
     });
     engineRef.current = engine;
@@ -79,6 +90,7 @@ export default function App() {
     // Check autostart query param
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get('autostart') === '1') {
+      runStartedAt.current = performance.now();
       engine.startGame();
       setGameState('playing');
     }
@@ -247,6 +259,7 @@ export default function App() {
 
   const startGame = () => {
     if (!engineRef.current) return;
+    runStartedAt.current = performance.now();
     engineRef.current.startGame();
     setGameState('playing');
   };
