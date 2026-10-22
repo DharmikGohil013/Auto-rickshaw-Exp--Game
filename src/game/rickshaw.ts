@@ -100,19 +100,27 @@ export class RickshawVehicle {
     chassis.receiveShadow = true;
     this.group.add(chassis);
 
-    // Side decorative white/silver stripes on rear fenders
-    const stripeGeo = new THREE.BoxGeometry(1.42, 0.04, 1.2);
-    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-    const stripe1 = new THREE.Mesh(stripeGeo, stripeMat);
-    stripe1.position.set(0, 0.45, 0.4);
-    this.group.add(stripe1);
+    // Chrome waistline and colored side aprons make the three-wheel body read
+    // as separate molded panels instead of one plain rectangular block.
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.75 });
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.45, metalness: 0.12 });
+    [-1, 1].forEach((side) => {
+      const apron = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.38, 1.15), this.bodyMaterial);
+      apron.position.set(side * 0.69, 0.48, 0.18);
+      apron.castShadow = true;
+      this.group.add(apron);
 
-    const stripe2 = new THREE.Mesh(stripeGeo, stripeMat);
-    stripe2.position.set(0, 0.35, 0.4);
-    this.group.add(stripe2);
+      const sideStripe = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.055, 0.82), stripeMat);
+      sideStripe.position.set(side * 0.737, 0.49, 0.2);
+      this.group.add(sideStripe);
+
+      const waistline = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 1.65), trimMat);
+      waistline.position.set(side * 0.706, 0.7, 0.13);
+      this.group.add(waistline);
+    });
 
     // Front Nose / Cowling (Tapered front cabin)
-    const noseGeo = new THREE.CylinderGeometry(0.5, 0.65, 0.7, 8);
+    const noseGeo = new THREE.CylinderGeometry(0.43, 0.67, 0.72, 12, 1, false);
     const nose = new THREE.Mesh(noseGeo, this.bodyMaterial);
     nose.position.set(0, 0.55, -1.05);
     nose.rotation.y = Math.PI / 4;
@@ -144,11 +152,10 @@ export class RickshawVehicle {
 
     // Roof & Canvas Awning (Khaki fabric arched top)
     const roofArches = new THREE.Group();
-    const roofTopGeo = new THREE.CylinderGeometry(0.72, 0.72, 1.8, 12, 1, false, 0, Math.PI);
+    const roofTopGeo = new THREE.SphereGeometry(1, 16, 10);
     const roofTop = new THREE.Mesh(roofTopGeo, this.canvasMaterial);
-    roofTop.rotation.z = Math.PI / 2;
-    roofTop.rotation.y = Math.PI / 2;
-    roofTop.position.set(0, 1.62, 0.15);
+    roofTop.scale.set(0.67, 0.4, 0.98);
+    roofTop.position.set(0, 1.58, 0.2);
     roofTop.castShadow = true;
     roofArches.add(roofTop);
 
@@ -157,6 +164,19 @@ export class RickshawVehicle {
     const roofCap = new THREE.Mesh(roofCapGeo, this.hoodMaterial);
     roofCap.position.set(0, 1.65, -0.75);
     roofArches.add(roofCap);
+
+    // Four slim canopy stays and a rolled fabric edge define the passenger bay.
+    const canopyStayGeo = new THREE.CylinderGeometry(0.025, 0.03, 0.78, 8);
+    [-1, 1].forEach((side) => {
+      [-0.64, 0.98].forEach((z) => {
+        const stay = new THREE.Mesh(canopyStayGeo, chromeMat);
+        stay.position.set(side * 0.58, 1.2, z);
+        roofArches.add(stay);
+      });
+    });
+    const canopyEdge = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.08, 0.12), this.hoodMaterial);
+    canopyEdge.position.set(0, 1.36, 1.08);
+    roofArches.add(canopyEdge);
     this.group.add(roofArches);
 
     // Rear Canvas Flap
@@ -164,6 +184,30 @@ export class RickshawVehicle {
     const rearFlap = new THREE.Mesh(flapGeo, this.canvasMaterial);
     rearFlap.position.set(0, 1.15, 1.08);
     this.group.add(rearFlap);
+
+    // Front fascia with a small grille, chrome bumper, and rear safety lamps.
+    const grilleMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.25, roughness: 0.55 });
+    const grille = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.055), grilleMat);
+    grille.position.set(0, 0.37, -1.43);
+    this.group.add(grille);
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.06, 0.09, 0.12), chromeMat);
+    bumper.position.set(0, 0.28, -1.39);
+    this.group.add(bumper);
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x7f1d1d, emissiveIntensity: 0.45 });
+    [-1, 1].forEach((side) => {
+      const tail = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), tailMat);
+      tail.position.set(side * 0.5, 0.65, 1.18);
+      this.group.add(tail);
+
+      const mirrorStem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.42, 8), chromeMat);
+      mirrorStem.position.set(side * 0.62, 1.12, -0.62);
+      mirrorStem.rotation.z = side * -0.22;
+      this.group.add(mirrorStem);
+      const mirror = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), chromeMat);
+      mirror.scale.set(1.15, 0.78, 0.35);
+      mirror.position.set(side * 0.67, 1.31, -0.64);
+      this.group.add(mirror);
+    });
 
     // Interior Seats
     // Driver seat
@@ -273,6 +317,9 @@ export class RickshawVehicle {
     const hubcap = new THREE.Mesh(hubcapGeo, chromeMat);
     hubcap.rotation.z = Math.PI / 2;
     this.frontForkGroup.add(hubcap);
+    const frontTireSidewall = new THREE.Mesh(new THREE.TorusGeometry(0.205, 0.035, 6, 20), rubberMat);
+    frontTireSidewall.rotation.y = Math.PI / 2;
+    this.frontForkGroup.add(frontTireSidewall);
 
     this.group.add(this.frontForkGroup);
 
@@ -283,6 +330,15 @@ export class RickshawVehicle {
     this.rearLeftWheel.rotation.z = Math.PI / 2;
     this.rearLeftWheel.castShadow = true;
     this.group.add(this.rearLeftWheel);
+    const rearTireSidewallGeo = new THREE.TorusGeometry(0.225, 0.035, 6, 20);
+    [-0.68, 0.68].forEach((wheelX) => {
+      [-1, 1].forEach((side) => {
+        const tireSidewall = new THREE.Mesh(rearTireSidewallGeo, rubberMat);
+        tireSidewall.rotation.y = Math.PI / 2;
+        tireSidewall.position.set(wheelX + side * 0.1, 0.26, 0.65);
+        this.group.add(tireSidewall);
+      });
+    });
 
     this.rearRightWheel = new THREE.Mesh(rearWheelGeo, rubberMat);
     this.rearRightWheel.position.set(0.68, 0.26, 0.65);
@@ -343,29 +399,48 @@ export class RickshawVehicle {
       // Build charming low-poly passenger figure sitting in back
       const passGroup = new THREE.Group();
 
-      // Shirt / Kurta
+      // Seated passenger with recognizable head, shoulders, arms, and umbrella.
       const shirtColors = [0x3b82f6, 0xec4899, 0xf59e0b, 0x10b981];
       const shirtMat = new THREE.MeshStandardMaterial({
         color: shirtColors[Math.floor(Math.random() * shirtColors.length)],
         roughness: 0.7,
       });
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.42, 0.24), shirtMat);
-      torso.position.set(0, 0.22, 0);
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.34, 4, 8), shirtMat);
+      torso.position.set(0, 0.32, 0);
       passGroup.add(torso);
 
       // Head
       const skinMat = new THREE.MeshStandardMaterial({ color: 0x935f3d, roughness: 0.6 });
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), skinMat);
-      head.position.set(0, 0.52, 0);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.135, 12, 10), skinMat);
+      head.position.set(0, 0.63, 0);
       passGroup.add(head);
 
+      const trouserMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+      [-1, 1].forEach((side) => {
+        const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.32, 3, 6), shirtMat);
+        arm.position.set(side * 0.22, 0.3, 0.02);
+        arm.rotation.z = side * 0.5;
+        passGroup.add(arm);
+        const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.27, 3, 6), trouserMat);
+        leg.position.set(side * 0.12, -0.02, -0.08);
+        leg.rotation.x = -0.5;
+        passGroup.add(leg);
+      });
+
       // Monsoon Umbrella tucked beside passenger!
-      const umbrellaGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.6);
+      const umbrellaGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.56, 8);
       const umbrellaMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.5 });
       const umbrella = new THREE.Mesh(umbrellaGeo, umbrellaMat);
       umbrella.position.set(0.28, 0.25, 0.05);
       umbrella.rotation.z = -0.2;
       passGroup.add(umbrella);
+      const umbrellaCanopy = new THREE.Mesh(
+        new THREE.SphereGeometry(0.34, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0xd97706, side: THREE.DoubleSide, roughness: 0.5 })
+      );
+      umbrellaCanopy.position.set(0.37, 0.53, 0.05);
+      umbrellaCanopy.scale.y = 0.55;
+      passGroup.add(umbrellaCanopy);
 
       this.passengerMesh = passGroup;
       this.passengerMount.add(passGroup);
