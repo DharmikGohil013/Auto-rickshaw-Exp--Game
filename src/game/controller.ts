@@ -91,6 +91,7 @@ export class GameEngine {
 
   // Reusable vectors (Zero GC)
   private _camTarget = new THREE.Vector3();
+  private _camLookDesired = new THREE.Vector3();
   private _camDesired = new THREE.Vector3();
 
   constructor(
@@ -131,6 +132,11 @@ export class GameEngine {
       250
     );
     this.camera.position.set(0, 5, 28);
+    this._camTarget.set(
+      this.position.x - Math.sin(this.heading) * 3,
+      this.position.y + 1.2,
+      this.position.z - Math.cos(this.heading) * 3
+    );
 
     // 3. Renderer with ACES Filmic & PMREM
     this.renderer = new THREE.WebGLRenderer({
@@ -212,6 +218,12 @@ export class GameEngine {
     this.heading = Math.PI;
     this.speed = 0;
     this.steerAngle = 0;
+    this.keys.forward = false;
+    this.keys.backward = false;
+    this.keys.left = false;
+    this.keys.right = false;
+    this.keys.brake = false;
+    this.keys.nitro = false;
     this.rickshaw.setPassengerVisible(false);
 
     soundEngine.init();
@@ -271,6 +283,12 @@ export class GameEngine {
     // Reset to nearest open road center if stuck
     this.speed = 0;
     this.steerAngle = 0;
+    this.keys.forward = false;
+    this.keys.backward = false;
+    this.keys.left = false;
+    this.keys.right = false;
+    this.keys.brake = false;
+    this.keys.nitro = false;
     this.position.y = 0.25;
     // Snap to nearest main road grid
     if (Math.abs(this.position.x) > Math.abs(this.position.z)) {
@@ -329,7 +347,7 @@ export class GameEngine {
 
     // Nitro Chai Boost
     let nitroMultiplier = 1.0;
-    if (this.keys.nitro && this.nitroCharge > 0) {
+    if (this.keys.forward && this.keys.nitro && this.nitroCharge > 0) {
       nitroMultiplier = 1.4;
       this.nitroCharge = Math.max(0, this.nitroCharge - dt * 25);
     } else if (this.nitroCharge < 100) {
@@ -337,10 +355,19 @@ export class GameEngine {
     }
 
     if (this.keys.forward) {
-      this.speed = Math.min(maxSpd * nitroMultiplier, this.speed + accel * nitroMultiplier * dt);
+      if (this.speed < 0) {
+        // Shift cleanly from reverse to forward before applying throttle.
+        this.speed = Math.min(0, this.speed + brakeDecel * dt);
+      } else {
+        this.speed = Math.min(maxSpd * nitroMultiplier, this.speed + accel * nitroMultiplier * dt);
+      }
     } else if (this.keys.backward) {
-      // Reverse driving (up to -12 km/h)
-      this.speed = Math.max(-12, this.speed - accel * 0.8 * dt);
+      // The reverse control first slows forward motion, then selects reverse.
+      if (this.speed > 0) {
+        this.speed = Math.max(0, this.speed - brakeDecel * 0.72 * dt);
+      } else {
+        this.speed = Math.max(-12, this.speed - accel * 0.45 * dt);
+      }
     } else {
       // Rolling friction
       const friction = inPuddle ? 4 : 12;
@@ -359,8 +386,8 @@ export class GameEngine {
     }
 
     // Steering
-    const steerTarget = this.keys.left ? 0.45 : this.keys.right ? -0.45 : 0;
-    this.steerAngle = THREE.MathUtils.damp(this.steerAngle, steerTarget, 10 * effectiveGrip, dt);
+    const steerTarget = this.keys.left === this.keys.right ? 0 : this.keys.left ? -0.45 : 0.45;
+    this.steerAngle = THREE.MathUtils.damp(this.steerAngle, steerTarget, 12 * effectiveGrip, dt);
 
     if (Math.abs(this.speed) > 0.5) {
       // Turn rate increases with forward speed but decreases slightly at extreme speed
@@ -368,49 +395,55 @@ export class GameEngine {
       this.heading += this.steerAngle * steerFactor * dt;
     }
 
-    // Update Position
-    const moveX = Math.sin(this.heading) * this.speed * dt;
-    const moveZ = Math.cos(this.heading) * this.speed * dt;
-    const newX = this.position.x + moveX;
-    const newZ = this.position.z + moveZ;
+    // Vehicle stats and HUD use km/h; convert to world metres per second here.
+    // The model's nose points along local -Z, so use that same forward vector
+    // for movement, steering and the camera.
+    const speedMps = this.speed / 3.6;
+    const moveX = -Math.sin(this.heading) * speedMps * dt;
+    const moveZ = -Math.cos(this.heading) * speedMps * dt;
+    const previousX = this.position.x;
+    const previousZ = this.position.z;
+    const candidateX = THREE.MathUtils.clamp(previousX + moveX, -78, 78);
+    const candidateZ = THREE.MathUtils.clamp(previousZ + moveZ, -78, 78);
 
-    // Boundary constraint (-80 to 80m)
-    this.position.x = Math.max(-78, Math.min(78, newX));
-    this.position.z = Math.max(-78, Math.min(78, newZ));
-
-    // 4. Collision Detection with World Buildings & Obstacles
-    const rickshawBox = new THREE.Box3();
-    rickshawBox.setFromCenterAndSize(
-      new THREE.Vector3(this.position.x, 1.0, this.position.z),
-      new THREE.Vector3(1.4, 1.8, 2.2)
-    );
+    // Check an oriented rectangular footprint using its world-space AABB.
+    const playerBox = new THREE.Box3();
+    const otherBox = new THREE.Box3();
+    const setOrientedBox = (box: THREE.Box3, x: number, z: number, width: number, length: number, yaw: number, height = 1.8) => {
+      const halfX = Math.abs(Math.cos(yaw)) * width / 2 + Math.abs(Math.sin(yaw)) * length / 2;
+      const halfZ = Math.abs(Math.sin(yaw)) * width / 2 + Math.abs(Math.cos(yaw)) * length / 2;
+      box.setFromCenterAndSize(new THREE.Vector3(x, height / 2, z), new THREE.Vector3(halfX * 2, height, halfZ * 2));
+    };
+    const collidesAt = (x: number, z: number) => {
+      setOrientedBox(playerBox, x, z, 1.4, 2.2, this.heading);
+      if (this.world.collisionBoxes.some((obstacle) => playerBox.intersectsBox(obstacle))) return true;
+      return this.world.trafficList.some((car) => {
+        setOrientedBox(otherBox, car.mesh.position.x, car.mesh.position.z, car.width, car.length, car.mesh.rotation.y, 1.6);
+        return playerBox.intersectsBox(otherBox);
+      });
+    };
 
     let hadHit = false;
-    for (const bBox of this.world.collisionBoxes) {
-      if (rickshawBox.intersectsBox(bBox)) {
-        hadHit = true;
-        // Bounce back slightly and stop
-        this.position.x -= moveX * 1.5;
-        this.position.z -= moveZ * 1.5;
-        this.speed = -this.speed * 0.4;
-        break;
+    if (!collidesAt(candidateX, candidateZ)) {
+      this.position.x = candidateX;
+      this.position.z = candidateZ;
+    } else {
+      hadHit = true;
+      // Resolve each axis independently so the rickshaw can slide along walls
+      // and parked traffic instead of being thrown backward from a corner.
+      this.position.x = previousX;
+      this.position.z = previousZ;
+      const axes: Array<'x' | 'z'> = Math.abs(moveX) >= Math.abs(moveZ) ? ['x', 'z'] : ['z', 'x'];
+      for (const axis of axes) {
+        const testX = axis === 'x' ? candidateX : this.position.x;
+        const testZ = axis === 'z' ? candidateZ : this.position.z;
+        if (!collidesAt(testX, testZ)) {
+          this.position.x = testX;
+          this.position.z = testZ;
+        }
       }
-    }
-
-    // Collision with Traffic Cars
-    for (const car of this.world.trafficList) {
-      const cBox = new THREE.Box3();
-      cBox.setFromCenterAndSize(
-        new THREE.Vector3(car.mesh.position.x, 1.0, car.mesh.position.z),
-        new THREE.Vector3(car.width, 1.6, car.length)
-      );
-      if (rickshawBox.intersectsBox(cBox)) {
-        hadHit = true;
-        this.speed = -Math.abs(this.speed) * 0.5;
-        this.position.x -= moveX * 1.2;
-        this.position.z -= moveZ * 1.2;
-        break;
-      }
+      this.speed *= 0.28;
+      this.cameraTrauma = Math.max(this.cameraTrauma, 0.45);
     }
 
     if (hadHit) {
@@ -483,12 +516,12 @@ export class GameEngine {
 
     // 8. Third-Person Following Camera Rig
     // Camera placed behind and slightly above rickshaw, damped smoothly
-    const camDist = 6.2;
+    const camDist = 7.0;
     const camHeight = 3.6;
     this._camDesired.set(
-      this.position.x - Math.sin(this.heading) * camDist,
+      this.position.x + Math.sin(this.heading) * camDist,
       this.position.y + camHeight,
-      this.position.z - Math.cos(this.heading) * camDist
+      this.position.z + Math.cos(this.heading) * camDist
     );
 
     // Apply trauma camera shake on collisions
@@ -503,11 +536,12 @@ export class GameEngine {
     // Smooth exponential damping
     this.camera.position.lerp(this._camDesired, 1 - Math.exp(-9 * dt));
 
-    this._camTarget.set(
-      this.position.x + Math.sin(this.heading) * 3,
+    this._camLookDesired.set(
+      this.position.x - Math.sin(this.heading) * 3,
       this.position.y + 1.2,
-      this.position.z + Math.cos(this.heading) * 3
+      this.position.z - Math.cos(this.heading) * 3
     );
+    this._camTarget.lerp(this._camLookDesired, 1 - Math.exp(-11 * dt));
     this.camera.lookAt(this._camTarget);
 
     // 9. Emit HUD Updates

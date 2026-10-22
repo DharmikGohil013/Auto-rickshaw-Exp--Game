@@ -459,8 +459,8 @@ export class RickshawVehicle {
       dt
     );
 
-    // Rotate wheels proportional to linear speed
-    const wheelRotDelta = (speed * dt) / 0.24;
+    // The controller stores road speed in km/h; wheel rotation uses metres.
+    const wheelRotDelta = (speed / 3.6 * dt) / 0.24;
     this.frontWheel.rotation.x += wheelRotDelta;
     this.rearLeftWheel.rotation.x += wheelRotDelta;
     this.rearRightWheel.rotation.x += wheelRotDelta;
