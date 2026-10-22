@@ -510,6 +510,7 @@ export class MumbaiWorld {
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3, metalness: 0.8 });
     const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
     const blueMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.4 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.22, metalness: 0.18, transparent: true, opacity: 0.84 });
 
     // Large Overhead Toll Gantry
     const gantry = new THREE.Mesh(new THREE.BoxGeometry(16, 0.8, 2.5), blueMat);
@@ -521,6 +522,9 @@ export class MumbaiWorld {
       const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 4.5), metalMat);
       pillar.position.set(px, 2.25, 0);
       tollGroup.add(pillar);
+      const pillarFoot = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.32, 1.1), blueMat);
+      pillarFoot.position.set(px, 0.16, 0);
+      tollGroup.add(pillarFoot);
     });
 
     // Central Toll Island & Booth
@@ -531,6 +535,40 @@ export class MumbaiWorld {
     const boothCabin = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 2.0), yellowMat);
     boothCabin.position.set(0, 1.4, 0);
     tollGroup.add(boothCabin);
+
+    // Glazed booth windows, roof trim, and a small service counter.
+    const boothRoof = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.18, 2.28), blueMat);
+    boothRoof.position.set(0, 2.72, 0);
+    tollGroup.add(boothRoof);
+    [-1, 1].forEach((side) => {
+      const window = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 1.45), glassMat);
+      window.position.set(side * 0.62, 1.66, 0);
+      tollGroup.add(window);
+    });
+    [-1, 1].forEach((side) => {
+      const window = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.9, 0.06), glassMat);
+      window.position.set(0, 1.66, side * 1.02);
+      tollGroup.add(window);
+    });
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.16, 0.34), metalMat);
+    counter.position.set(0, 0.78, 1.12);
+    tollGroup.add(counter);
+
+    // Two striped lifting barriers make the lanes read clearly at a glance.
+    const barrierMat = new THREE.MeshStandardMaterial({ color: 0xfffbeb, roughness: 0.45 });
+    [-4.6, 4.6].forEach((x) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 1.1, 10), yellowMat);
+      post.position.set(x, 0.55, 0);
+      tollGroup.add(post);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 5.3), barrierMat);
+      arm.position.set(x + (x < 0 ? 1.6 : -1.6), 1.14, 0);
+      tollGroup.add(arm);
+      for (let stripe = 0; stripe < 5; stripe++) {
+        const redStripe = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.11, 0.3), new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.5 }));
+        redStripe.position.set(arm.position.x, 1.14, -2.35 + stripe * 1.15);
+        tollGroup.add(redStripe);
+      }
+    });
 
     // Toll Banner Sign
     const tollCanvas = document.createElement('canvas');
@@ -564,11 +602,18 @@ export class MumbaiWorld {
     const canopyMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 }); // Indian Oil Blue
     const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
     const orangeMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.3 }); // Orange trim
+    const hoseMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.68 });
 
     // Large Station Canopy Roof
     const canopyRoof = new THREE.Mesh(new THREE.BoxGeometry(10, 0.6, 9), canopyMat);
     canopyRoof.position.set(0, 4.5, 0);
     pumpGroup.add(canopyRoof);
+    const canopyBand = new THREE.Mesh(new THREE.BoxGeometry(10.12, 0.16, 9.12), orangeMat);
+    canopyBand.position.set(0, 4.18, 0);
+    pumpGroup.add(canopyBand);
+    const canopyUnderside = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.12, 8.6), whiteMat);
+    canopyUnderside.position.set(0, 4.12, 0);
+    pumpGroup.add(canopyUnderside);
 
     // Support Columns
     [-3.8, 3.8].forEach((px) => {
@@ -576,6 +621,9 @@ export class MumbaiWorld {
         const col = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 4.5), whiteMat);
         col.position.set(px, 2.25, pz);
         pumpGroup.add(col);
+        const footing = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.32, 10), orangeMat);
+        footing.position.set(px, 0.16, pz);
+        pumpGroup.add(footing);
       });
     });
 
@@ -585,9 +633,30 @@ export class MumbaiWorld {
       dispenser.position.set(0, 0.9, pz);
       pumpGroup.add(dispenser);
 
-      // Hose nozzle
-      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7), whiteMat);
-      nozzle.position.set(0.45, 1.0, pz);
+      const dispenserFace = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.5, 0.055), whiteMat);
+      dispenserFace.position.set(0, 1.25, pz - 0.38);
+      pumpGroup.add(dispenserFace);
+      const displayMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x0f172a, roughness: 0.22, metalness: 0.1 });
+      const digitalDisplay = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.035), displayMat);
+      digitalDisplay.position.set(0, 1.32, pz - 0.42);
+      pumpGroup.add(digitalDisplay);
+      const buttonMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, emissive: 0x14532d, emissiveIntensity: 0.35 });
+      const button = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), buttonMat);
+      button.position.set(0.21, 0.96, pz - 0.41);
+      pumpGroup.add(button);
+
+      // Flexible hose and a shaped nozzle hang off each pump.
+      const hoseCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.37, 1.4, pz - 0.12),
+        new THREE.Vector3(0.7, 1.35, pz - 0.1),
+        new THREE.Vector3(0.82, 0.62, pz - 0.05),
+        new THREE.Vector3(0.56, 0.55, pz - 0.05),
+      ]);
+      const hose = new THREE.Mesh(new THREE.TubeGeometry(hoseCurve, 10, 0.035, 6, false), hoseMat);
+      pumpGroup.add(hose);
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.48, 8), whiteMat);
+      nozzle.position.set(0.58, 0.9, pz - 0.05);
+      nozzle.rotation.z = -0.2;
       pumpGroup.add(nozzle);
     });
 
@@ -662,23 +731,61 @@ export class MumbaiWorld {
     const palmGroup = new THREE.Group();
     palmGroup.position.set(x, 0, z);
 
-    // Trunk
+    // Tapered, slightly leaning trunk with visible growth rings.
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 5, 8), trunkMat);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.38, 5.2, 10, 5), trunkMat);
     trunk.position.set(0, 2.5, 0);
-    trunk.rotation.z = (Math.random() - 0.5) * 0.15;
+    trunk.rotation.z = (Math.random() - 0.5) * 0.1;
     trunk.castShadow = true;
     palmGroup.add(trunk);
 
-    // Fronds (Tropical Palm Leaves)
-    const frondMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.6, side: THREE.DoubleSide });
-    for (let i = 0; i < 6; i++) {
-      const angle = (i / 6) * Math.PI * 2;
-      const frond = new THREE.Mesh(new THREE.ConeGeometry(0.8, 3.2, 4), frondMat);
-      frond.position.set(Math.cos(angle) * 1.2, 4.8, Math.sin(angle) * 1.2);
-      frond.rotation.y = angle;
-      frond.rotation.x = Math.PI / 2.8;
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0x8b5e3c, roughness: 0.84 });
+    for (let ringIdx = 0; ringIdx < 8; ringIdx++) {
+      const y = 0.55 + ringIdx * 0.48;
+      const radius = THREE.MathUtils.lerp(0.33, 0.2, y / 5.2);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.035, 5, 12), ringMat);
+      ring.position.set(0, y, 0);
+      ring.rotation.x = Math.PI / 2;
+      palmGroup.add(ring);
+    }
+
+    // Broad, tapered palm fronds fan out from a single crown.
+    const frondShape = new THREE.Shape();
+    frondShape.moveTo(0, 0);
+    frondShape.quadraticCurveTo(0.72, 0.2, 1.35, 0.17);
+    frondShape.quadraticCurveTo(2.05, 0.06, 2.75, -0.48);
+    frondShape.quadraticCurveTo(1.72, -0.2, 1.05, -0.12);
+    frondShape.quadraticCurveTo(0.48, -0.08, 0, 0);
+    const frondGeo = new THREE.ShapeGeometry(frondShape, 8);
+    const stemCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0.8, 0.08, 0),
+      new THREE.Vector3(1.7, -0.08, 0),
+      new THREE.Vector3(2.65, -0.46, 0),
+    ]);
+    const frondStemGeo = new THREE.TubeGeometry(stemCurve, 8, 0.035, 5, false);
+    const frondMats = [0x166534, 0x15803d, 0x1d6b3a].map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.62, side: THREE.DoubleSide }));
+    for (let frondIdx = 0; frondIdx < 8; frondIdx++) {
+      const angle = (frondIdx / 8) * Math.PI * 2;
+      const frond = new THREE.Group();
+      const blade = new THREE.Mesh(frondGeo, frondMats[frondIdx % frondMats.length]);
+      blade.rotation.y = angle;
+      blade.position.y = 4.75;
+      blade.castShadow = true;
+      frond.add(blade);
+      const stem = new THREE.Mesh(frondStemGeo, ringMat);
+      stem.rotation.y = angle;
+      stem.position.y = 4.75;
+      frond.add(stem);
       palmGroup.add(frond);
+    }
+
+    const coconutMat = new THREE.MeshStandardMaterial({ color: 0x8b5e34, roughness: 0.82 });
+    for (let coconut = 0; coconut < 4; coconut++) {
+      const angle = (coconut / 4) * Math.PI * 2;
+      const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 7), coconutMat);
+      fruit.position.set(Math.cos(angle) * 0.26, 4.78, Math.sin(angle) * 0.26);
+      palmGroup.add(fruit);
     }
 
     this.scene.add(palmGroup);
@@ -694,14 +801,27 @@ export class MumbaiWorld {
     lightGroup.position.set(x, 0, z);
 
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6, roughness: 0.35 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, emissive: 0xfde68a, emissiveIntensity: 0.75, roughness: 0.25 });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.38, 0.35, 10), baseMat);
+    base.position.y = 0.18;
+    lightGroup.add(base);
+
     const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 5.2), metalMat);
     lamp.position.set(0, 2.6, 0);
     lamp.castShadow = true;
     lightGroup.add(lamp);
+    [1.1, 2.5, 3.9, 5.0].forEach((y) => {
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.025, 5, 10), baseMat);
+      collar.position.y = y;
+      collar.rotation.x = Math.PI / 2;
+      lightGroup.add(collar);
+    });
 
-    // Arm
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.2), metalMat);
-    arm.position.set(0, 5.1, 0.5);
+    // Curved gooseneck and compact lantern with a glowing glass diffuser.
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 1.05, 8), metalMat);
+    arm.position.set(0, 5.08, 0.47);
+    arm.rotation.x = Math.PI / 2;
     lightGroup.add(arm);
 
     // Emissive Lantern head
@@ -710,9 +830,16 @@ export class MumbaiWorld {
       emissive: 0xfde047,
       emissiveIntensity: 1.5,
     });
-    const lantern = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.25, 8), lanternMat);
-    lantern.position.set(0, 4.95, 1.0);
+    const lanternTop = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.14, 8), metalMat);
+    lanternTop.position.set(0, 5.22, 0.96);
+    lightGroup.add(lanternTop);
+    const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), glassMat);
+    lantern.scale.y = 0.8;
+    lantern.position.set(0, 5.02, 0.96);
     lightGroup.add(lantern);
+    const lanternBase = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.14, 0.12, 8), lanternMat);
+    lanternBase.position.set(0, 4.84, 0.96);
+    lightGroup.add(lanternBase);
 
     // Point Light for monsoon puddles illumination
     const warmLight = new THREE.PointLight(0xfde047, 1.2, 16, 1.5);
@@ -913,11 +1040,11 @@ export class MumbaiWorld {
         addWheel(side * 1.22, -2.25, 0.52, 0.24);
         addWheel(side * 1.22, 0.15, 0.52, 0.24);
         addWheel(side * 1.22, 2.35, 0.52, 0.24);
-        [-1, 1].forEach((lampSide) => {
-          const headlamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), headlampMat);
-          headlamp.position.set(lampSide * 0.82, 0.88, -3.36);
-          group.add(headlamp);
-        });
+      });
+      [-1, 1].forEach((lampSide) => {
+        const headlamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), headlampMat);
+        headlamp.position.set(lampSide * 0.82, 0.88, -3.36);
+        group.add(headlamp);
       });
       const boardCanvas = document.createElement('canvas');
       boardCanvas.width = 256;
